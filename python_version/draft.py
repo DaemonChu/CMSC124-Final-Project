@@ -104,3 +104,25 @@ def is_identifier(word):
             return False
     return True
 
+def lex(source):
+    #turn code into list of tokens + erros
+    #A token is (lexeme, classification, line_number)
+    tokens = []
+    errors = []
+    in_multiline_comment = False#True between OBTW and TLDR
+
+    lines = source.split("\n")
+    for line_number in range(1, len(lines) + 1):
+        rest = lines[line_number - 1].strip()
+
+        # --- inside an OBTW ... TLDR comment ---
+        if in_multiline_comment:
+            if rest.startswith("TLDR"):
+                tokens.append(("TLDR", "Multi-line Comment Delimiter", line_number))
+                in_multiline_comment = False
+                rest = rest[4:].strip()
+            else:
+                if rest != "":
+                    tokens.append((rest, "Comment", line_number))
+                continue
+
