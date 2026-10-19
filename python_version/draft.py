@@ -125,4 +125,61 @@ def lex(source):
                 if rest != "":
                     tokens.append((rest, "Comment", line_number))
                 continue
+        while rest != "":
+
+            # 1) string literal
+            if rest[0] == '"':
+                text = read_string(rest)
+                if text is None:
+                    errors.append("Line " + str(line_number) + ": string is missing its closing quote")
+                    break
+                tokens.append(('"', "String Delimiter", line_number))
+                tokens.append((text, "YARN Literal", line_number))
+                tokens.append(('"', "String Delimiter", line_number))
+                rest = rest[len(text) + 2:].strip()
+                continue
+
+            # 2) keyword
+            found = match_keyword(rest)
+            if found is not None:
+                word, kind = found
+                tokens.append((word, kind, line_number))
+                rest = rest[len(word):].strip()
+                if word == "BTW":#rest of line is a comment
+                    if rest != "":
+                        tokens.append((rest, "Comment", line_number))
+                    rest = ""
+                elif word == "OBTW":#comment until TLDR
+                    in_multiline_comment = True
+                    rest = ""
+                continue
+
+            # 3) everything else is a single word
+            word = get_word(rest)
+            if is_numbar(word):
+                tokens.append((word, "NUMBAR Literal", line_number))
+            elif is_numbr(word):
+                tokens.append((word, "NUMBR Literal", line_number))
+            elif word in TROOFS:
+                tokens.append((word, "TROOF Literal", line_number))
+            elif word in TYPES:
+                tokens.append((word, "Type Literal", line_number))
+            elif is_identifier(word):
+                #what kind of identifier? look at the token before it
+                before = ""
+                if len(tokens) > 0:
+                    before = tokens[-1][0]
+                if before == "HOW IZ I" or before == "I IZ":
+                    tokens.append((word, "Function Identifier", line_number))
+                elif before == "IM IN YR" or before == "IM OUTTA YR":
+                    tokens.append((word, "Loop Identifier", line_number))
+                else:
+                    tokens.append((word, "Variable Identifier", line_number))
+            else:
+                errors.append("Line " + str(line_number) + ": unknown lexeme '" + word + "'")
+            rest = rest[len(word):].strip()
+
+    if in_multiline_comment:
+        errors.append("OBTW comment was never closed with TLDR")
+    return tokens, errors
 
