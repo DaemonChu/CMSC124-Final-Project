@@ -61,9 +61,46 @@ def match_keyword(rest):
     for word, kind in KEYWORDS:
         if rest.startswith(word):
             after = rest[len(word):]
-            # The keyword must END here. "ITZ" is a keyword, but "ITZY" is not.
+            #the keyword must END here. "ITZ" is a kyword, but "ITZ..." arent
             if after == "" or not (after[0].isalnum() or after[0] == "_"):
                 return word, kind
     return None
 
+TYPES = ["NOOB", "NUMBR", "NUMBAR", "YARN", "TROOF"]
+TROOFS = ["WIN", "FAIL"]
+
+def read_string(rest):
+    #strings start with quotes, return the stuff inside the quotes, return None if there are no end qutoes
+    i = 1
+    while i < len(rest):
+        if rest[i] == '"':
+            return rest[1:i]
+        else:
+            i += 1
+    return None
+
+
+def get_word(rest):
+    #return chracters up to next sapce
+    return rest.split()[0]
+
+
+def is_numbr(word):
+    return word.lstrip("-").isdigit()
+
+
+def is_numbar(word):
+    #one dot, digits on both sides, optional minus at the srtart
+    parts = word.lstrip("-").split(".")
+    return len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit()
+
+
+def is_identifier(word):
+    #starts with a letter,then letters,digitsor underscores
+    if not word[0].isalpha():
+        return False
+    for ch in word:
+        if not (ch.isalnum() or ch == "_"):
+            return False
+    return True
 
