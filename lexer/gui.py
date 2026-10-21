@@ -36,12 +36,78 @@ class interpreterGUI:
         self.console()
 
 
+    # === FILE EXPLORER ===
+
+    # src : https://www.pythontutorial.net/tkinter/tkinter-open-file-dialog/
+    def browse_file(self):
+        filetypes=(
+            ("LOLCODE files", "*.lol"),
+            ('text files', '*.txt'),
+            ('All files', '*.*')
+        )
+
+        path = filedialog.askopenfilename(
+            title="Select a LOLCODE file",
+            filetypes=filetypes
+        )   
+
+        if path == "":
+            return
+
+        with open(path, "r") as f:
+            code = f.read()
+            self.file_path_label.config(text=path) 
+            self.editor.delete("1.0", tk.END) # delete any content first
+            self.editor.insert("1.0", code) 
+
     def file_explorer(self):
+        panel = tk.Frame(self.root)
+        panel.grid(row=1, column=0, sticky="ew")
+        panel.columnconfigure(0, weight=1)
+
+        self.file_path_label = tk.Label(panel, text="(No File Opened)", anchor="w", relief="sunken")
+        self.file_path_label.grid(row=0, column=0, sticky="ew")
+
+        tk.Button(panel, text="Browse...", command=self.browse_file).grid(row=0, column=1)
+
+
+    # === MAIN PANEL ===
+
+    # editor
+    def build_editor(self, frame):
+        self.editor = tk.Text(frame, wrap="none", undo=True)
+        scroll  = ttk.Scrollbar(frame, command=self.editor.yview)
+        self.editor.config(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        self.editor.pack(side="left", fill="both", expand=True)
+
+    # list of tokens
+    def build_tokens_list(self, frame):
         pass
 
-    # txt editor, list of tokens, symbol table
-    def main_panel(self):
+    # TODO: symbol table
+    def build_symbol_table(self, frame):
         pass
+
+    # src: https://www.pythontutorial.net/tkinter/tkinter-panedwindow/
+    def main_panel(self):
+        # use paned window
+        pw = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashrelief="raised")
+        pw.grid(row=2, column=0, sticky="nsew")
+
+        # frames
+        editor_frame = tk.Frame(pw)
+        token_frame = tk.Frame(pw)
+        symbol_frame = tk.Frame(pw)
+
+        self.build_editor(editor_frame)
+        self.build_tokens_list(token_frame)
+        self.build_symbol_table(symbol_frame)
+
+        pw.add(editor_frame, minsize=200, stretch="always")
+        pw.add(editor_frame, minsize=200, stretch="always")
+        pw.add(editor_frame, minsize=200, stretch="always")
+        
 
     def execute_btn(self):
         pass
