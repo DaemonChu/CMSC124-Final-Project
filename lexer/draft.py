@@ -97,10 +97,11 @@ def is_numbar(word):
 
 def is_identifier(word):
     #starts with a letter,then letters,digitsor underscores
-    if not word[0].isalpha():
+    # FIX: reject non-ASCII characters too for consistency : ^[a-zA-Z][a-zA-Z0-9_]*$
+    if len(word) == 0 or not word[0].isascii() or not word[0].isalpha():
         return False
     for ch in word:
-        if not (ch.isalnum() or ch == "_"):
+        if not (ch.isascii() and (ch.isalnum() or ch == "_")):
             return False
     return True
 
@@ -117,7 +118,8 @@ def lex(source):
 
         # --- inside an OBTW ... TLDR comment ---
         if in_multiline_comment:
-            if rest.startswith("TLDR"):
+            # FIX: .startswith("TLDR") alone can catch something like TLDRhello123
+            if rest == "TLDR" or rest.startswith("TLDR "):
                 tokens.append(("TLDR", "Multi-line Comment Delimiter", line_number))
                 in_multiline_comment = False
                 rest = rest[4:].strip()
