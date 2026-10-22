@@ -185,3 +185,74 @@ def lex(source):
         errors.append("OBTW comment was never closed with TLDR")
     return tokens, errors
 
+def build_symbol_table(tokens):
+    """Return a dictionary:  variable name -> value."""
+    table = {"IT": "NOOB"}# IT always exists in LOLCODE
+
+    for i in range(len(tokens)):
+        if tokens[i][0] == "I HAS A" and i + 1 < len(tokens):
+            name = tokens[i + 1][0]
+            value = "NOOB" # no ITZ means no value yet
+
+            #is there an "ITZ <something>" after the name?
+            if i + 3 < len(tokens) and tokens[i + 2][0] == "ITZ":
+                next_kind = tokens[i + 3][1]
+                if next_kind == "String Delimiter":
+                    value = tokens[i + 4][0] # the text inside the quotes
+                elif next_kind == "NUMBR Literal":
+                    value = int(tokens[i + 3][0])
+                elif next_kind == "NUMBAR Literal":
+                    value = float(tokens[i + 3][0])
+                elif next_kind == "TROOF Literal":
+                    value = tokens[i + 3][0]
+                else:
+                    value = "(computed when the program runs)"
+            table[name] = value
+    return table
+
+def main():
+    # which file to read?
+    if len(sys.argv) > 1:
+        path = sys.argv[1]
+    else:
+        path = "sample.lol"
+
+    try:
+        f = open(path, encoding="utf-8")
+    except FileNotFoundError:
+        print("Cannot find the file: " + path)
+        return
+    code = f.read()
+    f.close()
+
+    tokens, errors = lex(code)
+
+    # list of tokens
+    print("LEXEMES")
+    print("-" * 60)
+    print(f"{'Lexeme':<25}{'Classification'}")
+    print("-" * 60)
+    for lexeme, kind, line_number in tokens:
+        print(f"{lexeme:<25}{kind}")
+
+    # symbol table
+    symbols = build_symbol_table(tokens)
+    print()
+    print("SYMBOL TABLE")
+    print("-" * 60)
+    print(f"{'Identifier':<25}{'Value'}")
+    print("-" * 60)
+    for name in symbols:
+        print(f"{name:<25}{symbols[name]}")
+
+    # errors
+    if len(errors) > 0:
+        print()
+        print("LEXICAL ERRORS")
+        print("-" * 60)
+        for message in errors:
+            print(message)
+
+
+main()
+
