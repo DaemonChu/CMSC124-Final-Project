@@ -2,15 +2,16 @@ import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import ttk, filedialog, simpledialog, messagebox
 
-from draft import lex
+from draft import lex, build_symbol_table as get_symbols
 
 # TODO:
 # The parts of the GUI are as follows:
 # File Explorer – DONE
 # Text Editor – PARTIALLY DONE (wrap text needed)
 # List of Tokens – DONE
-# Symbol Table – TO DO
-# Console – TO DO
+# Symbol Table – DONE
+# Execute/Run Button - PARTIALLY DONE (Only up until symbol table so far)
+# Console – PARTIALLY DONE (No dialog box pop up for user input yet)
 
 class interpreterGUI:
     
@@ -74,15 +75,14 @@ class interpreterGUI:
             self.editor.insert("1.0", code) 
 
     def file_explorer(self):
-        panel = tk.Frame(self.root)
-        panel.grid(row=1, column=0, sticky="ew")
-        panel.columnconfigure(0, weight=1)
+        frame = tk.Frame(self.root)
+        frame.grid(row=1, column=0, sticky="ew")
+        frame.columnconfigure(0, weight=1)
 
-        self.file_path_label = tk.Label(panel, text="(No File Opened)", font=self.info_font, anchor="w", relief="sunken")
+        self.file_path_label = tk.Label(frame, text="(No File Opened)", font=self.info_font, anchor="w", relief="sunken")
         self.file_path_label.grid(row=0, column=0, sticky="ew")
 
-        tk.Button(panel, text="Browse...", command=self.browse_file).grid(row=0, column=1)
-
+        tk.Button(frame, text="Browse...", command=self.browse_file).grid(row=0, column=1)
 
     # === MAIN PANEL ===
 
@@ -116,10 +116,6 @@ class interpreterGUI:
 
         messagebox.showinfo("Search", f"No results found for '{query}'.")
 
-    # serach token table wrapper
-    def search_tokens(self, event=None):
-        self.search_treeview(self.table, self.search_entry.get())
-
     # editor
     # TODO: wrap text when adjusting the panel
     def build_editor(self, frame):
@@ -130,6 +126,10 @@ class interpreterGUI:
         self.editor.config(yscrollcommand=scroll.set)
         scroll.pack(side="right", fill="y")
         self.editor.pack(side="left", fill="both", expand=True)
+
+    # serach token table wrapper
+    def search_tokens(self, event=None):
+        self.search_treeview(self.table, self.search_entry.get())
 
     # list of tokens
     def build_tokens_list(self, frame):
@@ -149,16 +149,40 @@ class interpreterGUI:
         self.table.column("lexeme", width=150)
         self.table.column("classification", width=200)
         self.table.heading("lexeme", text="Lexeme")
-        self.table.heading("classification", text="Classificiation")
+        self.table.heading("classification", text="Classification")
 
         scroll  = ttk.Scrollbar(frame, command=self.table.yview)
         self.table.config(yscrollcommand=scroll.set)
         scroll.pack(side="right", fill="y")
         self.table.pack(side="left", fill="both", expand=True)
         
-    # TODO: symbol table
+
+    # serach symbol table wrapper
+    def search_symbols(self, event=None):
+        self.search_treeview(self.symbol_table, self.symbol_entry.get())
+
+    # symbol table
     def build_symbol_table(self, frame):
-        pass
+        tk.Label(frame, text="Symbol Table", font=self.subheader_font).pack(fill="x")
+
+        # search bar
+        search_bar = tk.Frame(frame)
+        search_bar.pack(fill="x", pady=(0, 3))
+        self.symbol_entry = ttk.Entry(search_bar)
+        self.symbol_entry.pack(side="left", fill="x", expand=True)
+        self.symbol_entry.bind("<Return>", self.search_symbols)
+        ttk.Button(search_bar, text="Search", command=self.search_symbols).pack(side="left", padx=(5, 0))
+
+        self.symbol_table = ttk.Treeview(frame, columns=("identifier", "value"), show="headings")
+        self.symbol_table.column("identifier", width=150)
+        self.symbol_table.column("value", width=200)
+        self.symbol_table.heading("identifier", text="Identifier")
+        self.symbol_table.heading("value", text="Value")
+
+        scroll = ttk.Scrollbar(frame, command=self.symbol_table.yview)
+        self.symbol_table.config(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        self.symbol_table.pack(side="left", fill="both", expand=True)
 
     # src: https://www.pythontutorial.net/tkinter/tkinter-panedwindow/
     def main_panel(self):
@@ -179,7 +203,7 @@ class interpreterGUI:
         pw.add(token_frame, minsize=200, stretch="always")
         pw.add(symbol_frame, minsize=200, stretch="always")
         
-    # execute button
+    # === EXECUTE ===
     def execute_btn(self):
         self.execute_frame = tk.Frame(self.root)
         self.execute_frame.grid(row=3, column=0, sticky="ew")
@@ -198,18 +222,59 @@ class interpreterGUI:
 
         # refresh the token table
         for row in self.table.get_children():
-            self.tbale.delete(row)
+            self.table.delete(row)
 
-        for lexeme, classification, line_number in tokens:
-            self.table.insert("", "end", values=(lexeme, classification))
+        # only fill the symbol table when the program has tokens
+        if len(tokens) > 0 :
+            symbols = get_symbols(tokens)
+            for name in symbols:
+                self.symbol_table.insert("", "end", values=(name, symbols[name]))
 
-        # TODO: implement console ; message box muna siyaa
+            for lexeme, classification, line_number in tokens:
+                self.table.insert("", "end", values=(lexeme, classification))
+
+        # console output here
+        self.console_clear()
+
         if len(errors) > 0:
-            messagebox.showerror("Lexer errors", "\n".join(errors))
+            for error in errors:
+                self.console_write(error + "\n", "error")
+            return
+
+        self.console_write("Lexical analysis finished with no errors.\n")
+
+    # === CONSOLE ===
+    def console_clear(self):
+        self.console_box.config(state="normal")
+        self.console_box.delete("1.0", tk.END)
+        self.console_box.config(state="disabled")
+
+    def console_write(self, text, tag=None):
+        self.console_box.config(state="normal")
+        self.console_box.insert(tk.END, text, tag)
+        self.console_box.see(tk.END)
+        self.console_box.config(state="disabled")
+
+    # TODO: (GIMMEH) dialog box when asking user for input
+    def console_input(self, prompt="Enter a value:"):
+        pass
 
     def console(self):
-        pass
+        frame = tk.Frame(self.root)
+        frame.grid(row=4, column=0, sticky="nsew")
+        frame.rowconfigure(1, weight=1)
+        frame.columnconfigure(0, weight=1)
+
+        tk.Label(frame, text="Console", font=self.subheader_font).grid(row=0, column=0, columnspan=2, sticky="ew")
+        self.console_box = tk.Text(frame, height=10, state="disabled", font=self.code_font)
         
+        scroll = ttk.Scrollbar(frame, command=self.console_box.yview)
+        self.console_box.config(yscrollcommand=scroll.set)
+        self.console_box.grid(row=1, column=0, sticky="nsew")
+        scroll.grid(row=1, column=1, sticky="ns")
+
+        # a separate style for error lines
+        self.console_box.tag_configure("error", font=self.error_font, foreground="red")
 
 if __name__ == "__main__":
     root = tk.Tk()
