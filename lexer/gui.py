@@ -1,3 +1,8 @@
+import re
+import os
+import sys
+import subprocess
+import shutil
 import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import ttk, filedialog, simpledialog, messagebox
@@ -42,6 +47,14 @@ class interpreterGUI:
         title = tk.Label(root, text="LOLCODE Interpreter", font=self.header_font, pady=6)
         title.grid(row=0, column=0, sticky="ew")
 
+        # dinaga ang code: click the title 5 times quickly
+        self.title_clicks = 0
+        self.reset_job = None
+        title.bind("<Button-1>", self.on_title_click)
+
+        # table row (lexeme, line number)
+        self.token_info = {}
+
         # build the other panels
         self.file_explorer()
         self.main_panel()
@@ -69,10 +82,12 @@ class interpreterGUI:
 
         with open(path, "r") as f:
             code = f.read()
-            self.file_path_label.config(text=path) 
-            self.file_path_label.config(text=path, font=self.normal_font)
-            self.editor.delete("1.0", tk.END) # delete any content first
-            self.editor.insert("1.0", code) 
+
+        self.file_path_label.config(text=path) 
+        self.file_path_label.config(text=path, font=self.normal_font)
+        self.editor.delete("1.0", tk.END) # delete any content first
+        self.editor.insert("1.0", code) 
+        self.update_line_numbers() # for the line numbers on the left
 
     def file_explorer(self):
         frame = tk.Frame(self.root)
@@ -87,7 +102,7 @@ class interpreterGUI:
     # === MAIN PANEL ===
 
     # search treeview (helper)
-    def search_treeview(self, table, query):
+    def search_treeview(self, table, query, whole_word):
         items = table.get_children()
 
         # nothing to search yet
@@ -99,6 +114,11 @@ class interpreterGUI:
         if query == "":
             return
 
+        # what if whole word matching?
+        pattern = re.escape(query)
+        if whole_word:
+            pattern = r"(?<!\w)" + pattern + r"(?!\w)"
+
         # start after the currently selected row, so searching again finds the next match
         start = 0
         selected = table.selection()
@@ -108,7 +128,7 @@ class interpreterGUI:
         # find next matching item
         for item in items[start:] + items[:start]:
             values = " ".join(str(v) for v in table.item(item)["values"])
-            if query in values.lower():
+            if re.search(pattern, values.lower()):
                 table.selection_set(item)
                 table.focus(item)
                 table.see(item)
@@ -116,20 +136,96 @@ class interpreterGUI:
 
         messagebox.showinfo("Search", f"No results found for '{query}'.")
 
+    # highlight matched words (Helper)
+    def clear_highlight(self):
+        self.editor.tag_remove("highlight", "1.0", "end")
+
+    # selecting a row in the token table highlights that lexeme on its line
+    def highlight_token(self, event=None):
+        selected = self.table.selection()
+        if len(selected) == 0 or selected[0] not in self.token_info:
+            return
+
+        lexeme, line = self.token_info[selected[0]]
+        self.clear_highlight()
+
+        start = self.editor.search(lexeme, str(line) + ".0", str(line) + ".end")
+        if start == "":
+            return
+        self.editor.tag_add("highlight", start, start + "+" + str(len(lexeme)) + "c")
+        self.editor.see(start)
+
+    # selecting a row in the symbol table highlights every use of that variable
+    def highlight_symbol(self, event=None):
+        selected = self.symbol_table.selection()
+        if len(selected) == 0:
+            return
+
+        name = str(self.symbol_table.item(selected[0])["values"][0])
+        self.clear_highlight()
+
+        length = tk.IntVar()
+        pattern = r"\m" + name + r"\M"      # \m and \M mark the start and end of a whole word
+        start = self.editor.search(pattern, "1.0", "end", regexp=True, count=length)
+        first = start
+        while start != "":
+            end = start + "+" + str(length.get()) + "c"
+            self.editor.tag_add("highlight", start, end)
+            start = self.editor.search(pattern, end, "end", regexp=True, count=length)
+
+        if first != "":
+            self.editor.see(first)
+
     # editor
     # TODO: wrap text when adjusting the panel
+
+    # for updating the line numbers when scrolling the text editor
+    def on_scroll(self, first, last):
+        self.scroll.set(first, last)
+        self.update_line_numbers()
+
+    def update_line_numbers(self, event=None):
+        self.editor.after_idle(self.draw_line_numbers)   # wait until Tk has laid out the text
+
+    # editor line numbers
+    def draw_line_numbers(self):
+        # src https://stackoverflow.com/questions/76691615/get-start-and-end-index-of-visible-text-in-python-tkinter-text-widget
+        # src https://stackoverflow.com/questions/24896747/how-to-display-line-numbers-in-tkinter-text-widget
+        # src https://tedboy.github.io/python_stdlib/generated/generated/Tkinter.Text.dlineinfo.html
+        self.line_numbers.delete("all")
+        last_line = int(self.editor.index("end-1c").split(".")[0])
+
+        index = self.editor.index("@0,0") # first visible line
+        while True:
+            info = self.editor.dlineinfo(index) # baseline pos of visible line
+            line = int(index.split(".")[0])
+            if info is None or line > last_line:
+                break
+            self.line_numbers.create_text(40, info[1], anchor="ne", text=line, font=self.code_font, fill="gray40")
+            index = self.editor.index(index + "+1line") # move one line forward from index
+
     def build_editor(self, frame):
         tk.Label(frame, text="Text Editor", font=self.subheader_font).pack(fill="x")
 
+        # ine numbers
+        self.line_numbers = tk.Canvas(frame, width=50, bg="#f3f3f3", highlightthickness=0)        
         self.editor = tk.Text(frame, wrap="none", undo=True, font=self.code_font)
-        scroll  = ttk.Scrollbar(frame, command=self.editor.yview)
-        self.editor.config(yscrollcommand=scroll.set)
-        scroll.pack(side="right", fill="y")
+        self.scroll  = ttk.Scrollbar(frame, command=self.editor.yview)
+        self.editor.config(yscrollcommand=self.on_scroll)
+        
+        #  styling for highlighed word
+        self.editor.tag_configure("highlight", background="#ffe066", foreground="black")
+
+        self.scroll.pack(side="right", fill="y")
+        self.line_numbers.pack(side="left", fill="y")
         self.editor.pack(side="left", fill="both", expand=True)
+
+        self.editor.bind("<KeyRelease>", self.update_line_numbers)   # typing, deleting
+        self.editor.bind("<Configure>", self.update_line_numbers)   # panel resized
 
     # serach token table wrapper
     def search_tokens(self, event=None):
-        self.search_treeview(self.table, self.search_entry.get())
+        self.search_treeview(self.table, self.search_entry.get(), self.token_whole.get())
 
     # list of tokens
     def build_tokens_list(self, frame):
@@ -139,17 +235,21 @@ class interpreterGUI:
         # search bar
         search_bar = tk.Frame(frame)
         search_bar.pack(fill="x", pady=(0, 3))
+
+        ttk.Button(search_bar, text="Search", command=self.search_tokens).pack(side="right", padx=(5,0))
+        self.token_whole = tk.BooleanVar()
+        ttk.Checkbutton(search_bar, text="Whole word", variable=self.token_whole).pack(side="right", padx=(5, 0))
+
         self.search_entry = ttk.Entry(search_bar)
         self.search_entry.pack(side="left", fill="x", expand=True)
         self.search_entry.bind("<Return>", self.search_tokens)
-        ttk.Button(search_bar, text="Search", command=self.search_tokens).pack(side="left", padx=(5,0))
-
 
         self.table = ttk.Treeview(frame, columns=("lexeme", "classification"), show="headings")
         self.table.column("lexeme", width=150)
         self.table.column("classification", width=200)
         self.table.heading("lexeme", text="Lexeme")
         self.table.heading("classification", text="Classification")
+        self.table.bind("<<TreeviewSelect>>", self.highlight_token)
 
         scroll  = ttk.Scrollbar(frame, command=self.table.yview)
         self.table.config(yscrollcommand=scroll.set)
@@ -159,7 +259,7 @@ class interpreterGUI:
 
     # serach symbol table wrapper
     def search_symbols(self, event=None):
-        self.search_treeview(self.symbol_table, self.symbol_entry.get())
+        self.search_treeview(self.symbol_table, self.symbol_entry.get(), self.symbol_whole.get())
 
     # symbol table
     def build_symbol_table(self, frame):
@@ -168,16 +268,21 @@ class interpreterGUI:
         # search bar
         search_bar = tk.Frame(frame)
         search_bar.pack(fill="x", pady=(0, 3))
+
+        ttk.Button(search_bar, text="Search", command=self.search_symbols).pack(side="right", padx=(5, 0))
+        self.symbol_whole = tk.BooleanVar()
+        ttk.Checkbutton(search_bar, text="Whole Word", variable=self.symbol_whole).pack(side="right", padx=(5, 0))
+
         self.symbol_entry = ttk.Entry(search_bar)
         self.symbol_entry.pack(side="left", fill="x", expand=True)
         self.symbol_entry.bind("<Return>", self.search_symbols)
-        ttk.Button(search_bar, text="Search", command=self.search_symbols).pack(side="left", padx=(5, 0))
 
         self.symbol_table = ttk.Treeview(frame, columns=("identifier", "value"), show="headings")
         self.symbol_table.column("identifier", width=150)
         self.symbol_table.column("value", width=200)
         self.symbol_table.heading("identifier", text="Identifier")
         self.symbol_table.heading("value", text="Value")
+        self.symbol_table.bind("<<TreeviewSelect>>", self.highlight_symbol)
 
         scroll = ttk.Scrollbar(frame, command=self.symbol_table.yview)
         self.symbol_table.config(yscrollcommand=scroll.set)
@@ -209,9 +314,7 @@ class interpreterGUI:
         self.execute_frame.grid(row=3, column=0, sticky="ew")
         self.execute_frame.columnconfigure(0, weight=1)
 
-        tk.Button(self.execute_frame, text="EXECUTE", font=self.subheader_font, command=self.execute).grid(
-            row=0, column=0, sticky="ew"
-        )  
+        tk.Button(self.execute_frame, text="EXECUTE", font=self.subheader_font, fg="#008000", activeforeground="#008000", command=self.execute).grid(row=0, column=0, sticky="ew")  
 
     # what actually goes on when pressing execute  
     def execute(self):
@@ -223,6 +326,12 @@ class interpreterGUI:
         # refresh the token table
         for row in self.table.get_children():
             self.table.delete(row)
+        for row in self.symbol_table.get_children():
+            self.symbol_table.delete(row)
+
+        # remember each token's line for matching highlight
+        self.token_info = {}
+        self.clear_highlight()
 
         # only fill the symbol table when the program has tokens
         if len(tokens) > 0 :
@@ -231,7 +340,8 @@ class interpreterGUI:
                 self.symbol_table.insert("", "end", values=(name, symbols[name]))
 
             for lexeme, classification, line_number in tokens:
-                self.table.insert("", "end", values=(lexeme, classification))
+                item = self.table.insert("", "end", values=(lexeme, classification))
+                self.token_info[item] = (lexeme, line_number)
 
         # console output here
         self.console_clear()
@@ -275,7 +385,49 @@ class interpreterGUI:
 
         # a separate style for error lines
         self.console_box.tag_configure("error", font=self.error_font, foreground="red")
+    
+    # === hala may daga ===
+    def on_title_click(self, event=None):
+        self.title_clicks = self.title_clicks + 1
 
+        # 2 second count down after a click
+        if self.reset_job is not None:
+            self.root.after_cancel(self.reset_job)
+        self.reset_job = self.root.after(2000, self.reset_title_clicks)
+
+        if self.title_clicks >= 5:
+            self.title_clicks = 0
+            self.mouse()
+
+    def reset_title_clicks(self):
+        self.title_clicks = 0
+        self.reset_job = None
+
+    def mouse(self):
+        here = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(here, "example", "sqksqksqk.mp4")
+
+        if not os.path.exists(path):
+            return
+
+        players = [
+            ("mpv", ["mpv", "--keep-open=no", path]),                        
+            ("vlc", ["vlc", "--play-and-exit", path]),
+            ("ffplay", ["ffplay", "-autoexit", path]),
+        ]
+        for name, command in players:
+            if shutil.which(name):          
+                subprocess.Popen(command)
+                return
+
+        # use the default player
+        if sys.platform.startswith("win"):
+            os.startfile(path)
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
+            
 if __name__ == "__main__":
     root = tk.Tk()
     interpreterGUI(root)
