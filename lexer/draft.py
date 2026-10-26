@@ -90,7 +90,7 @@ def read_string(rest):
 
 def get_word(rest):
     #return chracters up to next sapce
-    return rest.split()[0]
+    return rest.split()[0].split(",")[0]
 
 
 def is_numbr(word):
@@ -120,6 +120,7 @@ def is_identifier(word):
 def lex(source):
     #turn code into list of tokens + erros
     #A token is (lexeme, classification, line_number)
+    source = source.replace("\u201c", '"').replace("\u201d", '"')
     tokens = []
     errors = []
     in_multiline_comment = False#True between OBTW and TLDR
@@ -141,6 +142,10 @@ def lex(source):
                     tokens.append((rest, "Comment", line_number))
                 continue
         while rest != "":
+            if rest[0] == ",":
+                tokens.append((",", "Soft linebreak", line_number))
+                rest = rest[1:].strip()
+                continue
 
             # 1) string literal
             if rest[0] == '"':
@@ -300,21 +305,21 @@ EXPR_STARTERS = ARITH_OPS + BOOL_BIN_OPS + COMPARE_OPS + INFINITE_OPS + ("NOT", 
  
  
 def group_by_line(tokens):
-    #[(line_number, [tokens of that line without comments]), ...]
     lines = []
+    new_statement = True
     for t in tokens:
         if t[1] in IGNORED_KINDS:
             continue
-        
-        # if the last line's line number is same as the that of this token
-        if len(lines) > 0 and lines[-1][0] == t[2]:
-            # add the token to the tokens list of the last line
+        if t[1] == "Soft Linebreak":
+            new_statement = True
+            continue
+        if not new_statement and len(lines) > 0 and lines[-1][0] == t[2]:
             lines[-1][1].append(t)
         else:
-        
-        # create a new entry w/ line no. and list of tokens
             lines.append((t[2], [t]))
+            new_statement = False
     return lines
+
  
 
 # if a line has an error, stop checking it 
@@ -548,7 +553,8 @@ def check_varident(tokens, line):
 #     #from the stack. if Blocks opened after it were never closed -> report them.
  
 # 5) pang overall (outline muna)
-# def syntax_analyze(tokens):
+def syntax_analyze(tokens):
+    return []
 #     #returns a list of error messages (empty list = syntax is correct)
 #     errors = []
 #     lines = group_by_line(tokens)
