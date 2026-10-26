@@ -352,7 +352,7 @@ class interpreterGUI:
             return
 
         self.console_write("Lexical analysis finished with no errors.\n")
-
+        self.run_program(tokens)
     # === CONSOLE ===
     def console_clear(self):
         self.console_box.config(state="normal")
@@ -365,9 +365,45 @@ class interpreterGUI:
         self.console_box.see(tk.END)
         self.console_box.config(state="disabled")
 
-    # TODO: (GIMMEH) dialog box when asking user for input
+    #  TODO: (GIMMEH) dialog box when asking user for input
     def console_input(self, prompt="Enter a value:"):
-        pass
+        value = simpledialog.askstring("GIMMEH", prompt, parent=self.root) 
+        if value is None:  # user pressed Cancel
+            return ""  # treat Cancel as empty input
+        return value  
+
+    # ADDED: walks the token list and runs VISIBLE and GIMMEH
+    def run_program(self, tokens):
+        # ADDED: start from the symbol table values and scan every token by position
+        variables = dict(get_symbols(tokens))
+        i = 0
+        while i < len(tokens):
+            lexeme, kind, line = tokens[i]
+
+            # ADDED: VISIBLE collects every operand on its line and prints them together
+            # variables show their value, literals print as-is, unknown variables show NOOB, and quotes, AN, and comments are skipped
+            if lexeme == "VISIBLE":
+                output = ""
+                i += 1
+                while i < len(tokens) and tokens[i][2] == line:
+                    op_lexeme, op_kind, _ = tokens[i]
+                    if op_kind == "Variable Identifier":
+                        output += str(variables.get(op_lexeme, "NOOB"))
+                    elif op_kind in ("YARN Literal", "NUMBR Literal", "NUMBAR Literal", "TROOF Literal"):
+                        output += op_lexeme
+                    i += 1
+                self.console_write(output + "\n")
+                continue
+
+            #  GIMMEH shows the popup and stores the answer in the named variable, then skips past GIMMEH and the variable name
+            if lexeme == "GIMMEH" and i + 1 < len(tokens):
+                name = tokens[i + 1][0]
+                variables[name] = self.console_input("Enter a value for " + name + ":")
+                i += 2
+                continue
+
+            # any other token is ignored for now
+            i += 1
 
     def console(self):
         frame = tk.Frame(self.root)
