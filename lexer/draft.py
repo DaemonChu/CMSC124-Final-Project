@@ -78,19 +78,24 @@ TYPES = ["NOOB", "NUMBR", "NUMBAR", "YARN", "TROOF"]
 TROOFS = ["WIN", "FAIL"]
 
 def read_string(rest):
-    #strings start with quotes, return the stuff inside the quotes, return None if there are no end qutoes
+    # skip escaped characters before checking for the closing quote
     i = 1
     while i < len(rest):
+        if rest[i] == ":" and i + 1 < len(rest):
+            i += 2
+            continue
         if rest[i] == '"':
             return rest[1:i]
-        else:
-            i += 1
+        i += 1
     return None
 
 
 def get_word(rest):
-    #return chracters up to next sapce
-    return rest.split()[0].split(",")[0]
+    return re.match(r"[^,\s+!]+", rest).group(0)
+
+
+def is_plus(token):
+    return token is not None and token[0] == "+" and token[1] == "Concatenation Operator"
 
 
 def is_numbr(word):
@@ -144,6 +149,16 @@ def lex(source):
         while rest != "":
             if rest[0] == ",":
                 tokens.append((",", "Soft linebreak", line_number))
+                rest = rest[1:].strip()
+                continue
+
+            if rest[0] == "+":
+                tokens.append(("+", "Concatenation Operator", line_number))
+                rest = rest[1:].strip()
+                continue
+
+            if rest[0] == "!":
+                tokens.append(("!", "Output Suppressor", line_number))
                 rest = rest[1:].strip()
                 continue
 
@@ -370,19 +385,20 @@ TYPES = ["NOOB", "NUMBR", "NUMBAR", "YARN", "TROOF"]
 TROOFS = ["WIN", "FAIL"]
 
 def read_string(rest):
-    #strings start with quotes, return the stuff inside the quotes, return None if there are no end qutoes
+    # skip escaped characters before checking for the closing quote
     i = 1
     while i < len(rest):
+        if rest[i] == ":" and i + 1 < len(rest):
+            i += 2
+            continue
         if rest[i] == '"':
             return rest[1:i]
-        else:
-            i += 1
+        i += 1
     return None
 
 
 def get_word(rest):
-    #return chracters up to next sapce
-    return rest.split()[0].split(",")[0]
+    return re.match(r"[^,\s+!]+", rest).group(0)
 
 
 def is_numbr(word):
@@ -436,6 +452,16 @@ def lex(source):
         while rest != "":
             if rest[0] == ",":
                 tokens.append((",", "Soft linebreak", line_number))
+                rest = rest[1:].strip()
+                continue
+
+            if rest[0] == "+":
+                tokens.append(("+", "Concatenation Operator", line_number))
+                rest = rest[1:].strip()
+                continue
+
+            if rest[0] == "!":
+                tokens.append(("!", "Output Suppressor", line_number))
                 rest = rest[1:].strip()
                 continue
 
@@ -599,18 +625,30 @@ EXPR_STARTERS = ARITH_OPS + BOOL_BIN_OPS + COMPARE_OPS + INFINITE_OPS + ("NOT", 
 def group_by_line(tokens):
     #[(line_number, [tokens of that line without comments]), ...]
     lines = []
+    current_line = None
+    current_tokens = []
+
     for t in tokens:
         if t[1] in IGNORED_KINDS:
             continue
-        
-        # if the last line's line number is same as the that of this token
-        if len(lines) > 0 and lines[-1][0] == t[2]:
-            # add the token to the tokens list of the last line
-            lines[-1][1].append(t)
-        else:
-        
-        # create a new entry w/ line no. and list of tokens
-            lines.append((t[2], [t]))
+
+        if t[1] == "Soft linebreak":
+            if current_tokens:
+                lines.append((current_line, current_tokens))
+            current_line = None
+            current_tokens = []
+            continue
+
+        if current_line is not None and current_line != t[2]:
+            lines.append((current_line, current_tokens))
+            current_tokens = []
+
+        current_line = t[2]
+        current_tokens.append(t)
+
+    if current_tokens:
+        lines.append((current_line, current_tokens))
+
     return lines
  
 
@@ -681,7 +719,7 @@ def parse_expr(tokens, i, line, in_inf, after=""):
     kind = t[1]
  
     # literal or variable
-    if kind in LITERAL_KINDS or kind == "Variable Identifier":
+    if kind in LITERAL_KINDS or kind == "Variable Identifier" or (word == "NOOB" and kind == "Type Literal"):
         # since we're done checking this position, return the next
         return i + 1
     if kind == "String Delimiter":
@@ -826,14 +864,19 @@ def check_varident(tokens, line):
  
  
 def check_visible(tokens, line):
-    # VISIBLE <expr> [+ <expr> + <expr> ...]    (from spec: operands are separated by '+')
+    # accept adjacent output expressions, with or without '+' separators
     i = parse_expr(tokens, 1, line, False, "'VISIBLE'")
-    
-    # every extra item must start with a '+'
-    while is_plus(get(tokens, i)):
-        i = parse_expr(tokens, i + 1, line, False, "'+'")
-    
-    check_end(tokens, i, line, "the items of VISIBLE must be separated by '+'")
+
+    while get(tokens, i) is not None and get(tokens, i)[1] != "Output Suppressor":
+        if is_plus(get(tokens, i)):
+            i = parse_expr(tokens, i + 1, line, False, "'+'")
+        else:
+            i = parse_expr(tokens, i, line, False, "'VISIBLE'")
+
+    if get(tokens, i) is not None and get(tokens, i)[1] == "Output Suppressor":
+        i += 1
+
+    check_end(tokens, i, line, "the output suppressor must be at the end of VISIBLE")
  
  
 def check_gimmeh(tokens, line):
@@ -1038,7 +1081,20 @@ def syntax_analyze(tokens):
     # OBTW / TLDR sharing a line with a statement
     errors = check_comment_placement(tokens)
     lines = group_by_line(tokens)
- 
+
+    # attach a standalone closing MKAY to the preceding function call
+    for n in range(1, len(lines)):
+        line_tokens = lines[n][1]
+        previous_tokens = lines[n - 1][1]
+        if (len(line_tokens) == 1 and is_keyword(line_tokens[0], "MKAY")
+                and any(is_keyword(token, "I IZ") for token in previous_tokens)
+                and sum(is_keyword(token, "I IZ") is not None for token in previous_tokens)
+                > sum(is_keyword(token, "MKAY") is not None for token in previous_tokens)):
+            previous_tokens.extend(line_tokens)
+            lines[n] = (lines[n][0], [])
+
+    lines = [entry for entry in lines if entry[1]]
+
     if len(lines) == 0:
         return ["Line 1: the program is empty - it must start with 'HAI' and end with 'KTHXBYE'"]
  
@@ -1117,9 +1173,10 @@ def syntax_analyze(tokens):
                 check_end(line_tokens, 1, line, "'BUHBYE' must be alone on its line")
  
             elif word == "I HAS A":
-                # per the spec, variables are declared only inside WAZZUP ... BUHBYE
-                if top is None or top["name"] != "WAZZUP":
-                    fail(line, "variables must be declared inside the WAZZUP ... BUHBYE section, right after HAI")
+                # allow global declarations in WAZZUP and local ones in functions
+                if (top is None or
+                        (top["name"] != "WAZZUP" and not inside(stack, ("HOW IZ I",)))):
+                    fail(line, "variables must be declared in the WAZZUP section or inside a function")
                 check_varident(line_tokens, line)
  
             #  if-else 

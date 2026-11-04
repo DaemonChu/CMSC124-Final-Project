@@ -7,7 +7,7 @@ import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import ttk, filedialog, simpledialog, messagebox
 
-from draft import lex, build_symbol_table as get_symbols
+from draft import analyze, build_symbol_table as get_symbols
 
 # TODO:
 # The parts of the GUI are as follows:
@@ -320,8 +320,7 @@ class interpreterGUI:
     def execute(self):
         source = self.editor.get("1.0", "end-1c")
 
-        # run lexical analyzer
-        tokens, errors = lex(source)
+        tokens, errors, symbols, syntax_errors = analyze(source)
 
         # refresh the token table
         for row in self.table.get_children():
@@ -335,7 +334,6 @@ class interpreterGUI:
 
         # only fill the symbol table when the program has tokens
         if len(tokens) > 0 :
-            symbols = get_symbols(tokens)
             for name in symbols:
                 self.symbol_table.insert("", "end", values=(name, symbols[name]))
 
@@ -346,12 +344,17 @@ class interpreterGUI:
         # console output here
         self.console_clear()
 
-        if len(errors) > 0:
+        if errors:
             for error in errors:
                 self.console_write(error + "\n", "error")
             return
 
         self.console_write("Lexical analysis finished with no errors.\n")
+        if syntax_errors:
+            self.console_write(syntax_errors[0] + "\n", "error")
+            return
+
+        self.console_write("Syntax analysis finished with no errors.\n")
         self.run_program(tokens)
     # === CONSOLE ===
     def console_clear(self):
@@ -372,18 +375,18 @@ class interpreterGUI:
             return ""  # treat Cancel as empty input
         return value  
 
-    # ADDED: walks the token list and runs VISIBLE and GIMMEH
+    # run basic VISIBLE and GIMMEH statements
     def run_program(self, tokens):
-        # ADDED: start from the symbol table values and scan every token by position
+        # initialize variables from the declarations
         variables = dict(get_symbols(tokens))
         i = 0
         while i < len(tokens):
             lexeme, kind, line = tokens[i]
 
-            # ADDED: VISIBLE collects every operand on its line and prints them together
-            # variables show their value, literals print as-is, unknown variables show NOOB, and quotes, AN, and comments are skipped
+            # print output expressions from this line
             if lexeme == "VISIBLE":
                 output = ""
+                suppress_newline = False
                 i += 1
                 while i < len(tokens) and tokens[i][2] == line:
                     op_lexeme, op_kind, _ = tokens[i]
@@ -391,18 +394,20 @@ class interpreterGUI:
                         output += str(variables.get(op_lexeme, "NOOB"))
                     elif op_kind in ("YARN Literal", "NUMBR Literal", "NUMBAR Literal", "TROOF Literal"):
                         output += op_lexeme
+                    elif op_kind == "Output Suppressor":
+                        suppress_newline = True
                     i += 1
-                self.console_write(output + "\n")
+                self.console_write(output + ("" if suppress_newline else "\n"))
                 continue
 
-            #  GIMMEH shows the popup and stores the answer in the named variable, then skips past GIMMEH and the variable name
+            # read input and assign it to the named variable
             if lexeme == "GIMMEH" and i + 1 < len(tokens):
                 name = tokens[i + 1][0]
                 variables[name] = self.console_input("Enter a value for " + name + ":")
                 i += 2
                 continue
 
-            # any other token is ignored for now
+            # skip tokens not handled by this basic runner
             i += 1
 
     def console(self):
