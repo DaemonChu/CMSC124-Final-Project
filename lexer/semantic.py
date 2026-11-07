@@ -5,7 +5,9 @@ import re
 import sys
 import math
 
-from draft import (analyze, group_by_line, first_word, is_keyword, is_plus, ARITH_OPS, BOOL_BIN_OPS, COMPARE_OPS, INFINITE_OPS)
+from main import analyze
+from lexer import is_plus
+from syntax import (group_by_line, first_word, is_keyword, ARITH_OPS, BOOL_BIN_OPS, COMPARE_OPS, INFINITE_OPS)
 
 # data of the program that is currently running (reset on every run)
 PROGRAM = {}

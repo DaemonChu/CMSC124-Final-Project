@@ -7,7 +7,7 @@ import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import ttk, filedialog, simpledialog, messagebox
 
-from draft import analyze
+from main import analyze
 from semantic import run_program, format_value
 
 # TODO:
@@ -362,7 +362,7 @@ class interpreterGUI:
 
         for row in self.symbol_table.get_children():
             self.symbol_table.delete(row)
-            
+
         for name in result["variables"]:
             self.symbol_table.insert("", "end", values=(name, format_value(result["variables"][name])))
 
