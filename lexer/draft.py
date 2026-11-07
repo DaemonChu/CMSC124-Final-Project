@@ -1324,6 +1324,44 @@ def analyze(source):
     if len(errors) == 0:
         syntax_errors = syntax_analyze(tokens)
     return tokens, errors, symbols, syntax_errors
+   
+# run basic VISIBLE and GIMMEH statements
+def visible_gimmeh(tokens, write_output, read_input):
+    # initialize variables from the declarations
+    variables = dict(build_symbol_table(tokens))
+    i = 0
+    while i < len(tokens):
+        lexeme, kind, line = tokens[i]
+
+        # print output expressions from this line
+        if lexeme == "VISIBLE":
+            output = ""
+            suppress_newline = False
+            i += 1
+            while i < len(tokens) and tokens[i][2] == line:
+                op_lexeme, op_kind, _ = tokens[i]
+                if op_kind == "Variable Identifier":
+                    output += str(variables.get(op_lexeme, "NOOB"))
+                elif op_kind in ("YARN Literal", "NUMBR Literal", "NUMBAR Literal", "TROOF Literal"):
+                    output += op_lexeme
+                elif op_kind == "Output Suppressor":
+                    suppress_newline = True
+                i += 1
+            write_output(output + ("" if suppress_newline else "\n"))
+            continue
+
+        # read input and assign it to the named variable
+        if lexeme == "GIMMEH" and i + 1 < len(tokens):
+            name = tokens[i + 1][0]
+            variables[name] = read_input("Enter a value for " + name + ":")
+            i += 2
+            continue
+
+        # skip tokens not handled by this basic runner
+        i += 1
+    return variables
+
+
  
 def main():
     # which file to read?

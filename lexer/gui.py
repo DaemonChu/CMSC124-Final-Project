@@ -7,7 +7,7 @@ import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import ttk, filedialog, simpledialog, messagebox
 
-from draft import analyze, build_symbol_table as get_symbols
+from draft import analyze, visible_gimmeh
 
 # TODO:
 # The parts of the GUI are as follows:
@@ -355,7 +355,7 @@ class interpreterGUI:
             return
 
         self.console_write("Syntax analysis finished with no errors.\n")
-        self.run_program(tokens)
+        visible_gimmeh(tokens, self.console_write, self.console_input)
     # === CONSOLE ===
     def console_clear(self):
         self.console_box.config(state="normal")
@@ -374,41 +374,6 @@ class interpreterGUI:
         if value is None:  # user pressed Cancel
             return ""  # treat Cancel as empty input
         return value  
-
-    # run basic VISIBLE and GIMMEH statements
-    def run_program(self, tokens):
-        # initialize variables from the declarations
-        variables = dict(get_symbols(tokens))
-        i = 0
-        while i < len(tokens):
-            lexeme, kind, line = tokens[i]
-
-            # print output expressions from this line
-            if lexeme == "VISIBLE":
-                output = ""
-                suppress_newline = False
-                i += 1
-                while i < len(tokens) and tokens[i][2] == line:
-                    op_lexeme, op_kind, _ = tokens[i]
-                    if op_kind == "Variable Identifier":
-                        output += str(variables.get(op_lexeme, "NOOB"))
-                    elif op_kind in ("YARN Literal", "NUMBR Literal", "NUMBAR Literal", "TROOF Literal"):
-                        output += op_lexeme
-                    elif op_kind == "Output Suppressor":
-                        suppress_newline = True
-                    i += 1
-                self.console_write(output + ("" if suppress_newline else "\n"))
-                continue
-
-            # read input and assign it to the named variable
-            if lexeme == "GIMMEH" and i + 1 < len(tokens):
-                name = tokens[i + 1][0]
-                variables[name] = self.console_input("Enter a value for " + name + ":")
-                i += 2
-                continue
-
-            # skip tokens not handled by this basic runner
-            i += 1
 
     def console(self):
         frame = tk.Frame(self.root)
