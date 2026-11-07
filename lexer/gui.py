@@ -7,7 +7,8 @@ import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import ttk, filedialog, simpledialog, messagebox
 
-from draft import analyze, visible_gimmeh
+from draft import analyze
+from semantic import run_program, format_value
 
 # TODO:
 # The parts of the GUI are as follows:
@@ -355,7 +356,18 @@ class interpreterGUI:
             return
 
         self.console_write("Syntax analysis finished with no errors.\n")
-        visible_gimmeh(tokens, self.console_write, self.console_input)
+        
+        # connect the gui to the semantics.py
+        result = run_program(source, write_output=self.console_write, read_input=self.console_input)
+
+        for row in self.symbol_table.get_children():
+            self.symbol_table.delete(row)
+            
+        for name in result["variables"]:
+            self.symbol_table.insert("", "end", values=(name, format_value(result["variables"][name])))
+
+        for error in result["errors"]:
+            self.console_write(error + "\n", "error")
     # === CONSOLE ===
     def console_clear(self):
         self.console_box.config(state="normal")
@@ -367,6 +379,7 @@ class interpreterGUI:
         self.console_box.insert(tk.END, text, tag)
         self.console_box.see(tk.END)
         self.console_box.config(state="disabled")
+        
 
     #  TODO: (GIMMEH) dialog box when asking user for input
     def console_input(self, prompt="Enter a value:"):
