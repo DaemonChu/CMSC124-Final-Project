@@ -1,5 +1,4 @@
 import re
-import sys
 
 KEYWORDS = [
     ("HAI", "Code Delimiter"),
@@ -114,12 +113,7 @@ def is_numbar(word):
 def is_identifier(word):
     #starts with a letter,then letters,digitsor underscores
     # FIX: reject non-ASCII characters too for consistency : ^[a-zA-Z][a-zA-Z0-9_]*$
-    if len(word) == 0 or not word[0].isascii() or not word[0].isalpha():
-        return False
-    for ch in word:
-        if not (ch.isascii() and (ch.isalnum() or ch == "_")):
-            return False
-    return True
+    return re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", word) is not None
 
 def lex(source):
     #turn code into list of tokens + erros
@@ -130,21 +124,33 @@ def lex(source):
     in_multiline_comment = False#True between OBTW and TLDR
     obtw_line = 0 # remembers which line the OBTW started on (for the "never closed" error)
 
-    lines = source.split("\n")
-    for line_number in range(1, len(lines) + 1):
-        rest = lines[line_number - 1].strip()
-
+    for line_number, line in enumerate(source.split("\n"), start=1):
+        rest = line.strip() 
+    
         # --- inside an OBTW ... TLDR comment ---
         if in_multiline_comment:
-            # FIX: .startswith("TLDR") alone can catch something like TLDRhello123
-            if rest == "TLDR" or rest.startswith("TLDR "):
+            # Look for TLDR as a complete keywrd anywhere in the line.
+            has_tldr = re.search(r"(^|\s)TLDR(\s|$)", rest)
+
+            if has_tldr:
+                # Save the comment text before TLDR, if there is any.
+                comment = rest[:has_tldr.start()].strip()
+
+                if comment != "":
+                    tokens.append((comment, "Comment", line_number))
+
+                # End the multiline comment.
                 tokens.append(("TLDR", "Multi-line Comment Delimiter", line_number))
                 in_multiline_comment = False
-                rest = rest[4:].strip()
+
+                # Continue reading any code after TLDR.
+                rest = rest[has_tldr.end():].strip()
             else:
+                # The entire line is still part of the comment.
                 if rest != "":
                     tokens.append((rest, "Comment", line_number))
                 continue
+
         while rest != "":
             if rest[0] == ",":
                 tokens.append((",", "Soft linebreak", line_number))
@@ -189,35 +195,32 @@ def lex(source):
                         tokens.append((rest, "Comment", line_number))
                     rest = ""
                 elif word == "OBTW":#comment until TLDR
-                    # changed in_multiline_comment = True 
-                    # since "OBTW some comment TLDR" on one line is a valid comment
-                    text_with_spaces = " " + rest + " "
-                    tldr_position = text_with_spaces.find(" TLDR ")
-                    
-                    # if multi-line
-                    if tldr_position == -1:
-                        in_multiline_comment = True
-                        obtw_line = line_number
-                        # keep the text after OBTW as a Comment token, then rest = ""
-                        # since spec allows comment text on the OBTW line ("OBTW what way?")
-                        if rest != "":
-                            tokens.append((rest, "Comment", line_number))
-                        rest = ""
-                    
-                    # if single line
-                    else:
-                        # get the text between obtw and tldr
-                        comment = rest[:tldr_position].strip()
-                        
-                        # if comment isn't empty, add it to tokens list
+                    # Check if the comment ends on the same line.
+                    has_tldr = re.search(r"(^|\s)TLDR(\s|$)", rest)
+
+                    if has_tldr:
+                        # Save the text between OBTW and TLDR.
+                        comment = rest[:has_tldr.start()].strip()
+
                         if comment != "":
                             tokens.append((comment, "Comment", line_number))
-                            
-                        # append tldr as well
+
+                        # Add the closing delimiter.
                         tokens.append(("TLDR", "Multi-line Comment Delimiter", line_number))
-                        rest = ""
+
+                        # Continue reading any code after TLDR.
+                        rest = rest[has_tldr.end():].strip()
+
+                    else:
+                        # The comment continues on the following lines.
+                        in_multiline_comment = True
+                        obtw_line = line_number
+
+                        if rest != "":
+                            tokens.append((rest, "Comment", line_number))
+
+                        rest = ""   
                 continue
- 
             # 3) everything else is a single word
             word = get_word(rest)
             if is_numbar(word):
@@ -272,7 +275,11 @@ def build_symbol_table(tokens):
             if i + 3 < len(tokens) and tokens[i + 2][0] == "ITZ":
                 next_kind = tokens[i + 3][1]
                 if next_kind == "String Delimiter":
-                    value = tokens[i + 4][0] # the text inside the quotes
+                    # Check if the string value exists.
+                    if i + 4 < len(tokens):
+                        # Check if the token is a YARN literal.
+                        if tokens[i + 4][1] == "YARN Literal":
+                            value = tokens[i + 4][0]
                     
                 elif next_kind == "NUMBR Literal":
                     value = int(tokens[i + 3][0])
