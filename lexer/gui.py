@@ -10,15 +10,6 @@ from tkinter import ttk, filedialog, simpledialog, messagebox
 from main import analyze
 from src.semantic import run_program, format_value
 
-# TODO:
-# The parts of the GUI are as follows:
-# File Explorer – DONE
-# Text Editor – PARTIALLY DONE (wrap text needed)
-# List of Tokens – DONE
-# Symbol Table – DONE
-# Execute/Run Button - PARTIALLY DONE (Only up until symbol table so far)
-# Console – PARTIALLY DONE (No dialog box pop up for user input yet)
-
 class interpreterGUI:
     
     def __init__(self, root):
@@ -208,7 +199,7 @@ class interpreterGUI:
     def build_editor(self, frame):
         tk.Label(frame, text="Text Editor", font=self.subheader_font).pack(fill="x")
 
-        # ine numbers
+        # line numbers
         self.line_numbers = tk.Canvas(frame, width=50, bg="#f3f3f3", highlightthickness=0)        
         self.editor = tk.Text(frame, wrap="none", undo=True, font=self.code_font)
         self.scroll  = ttk.Scrollbar(frame, command=self.editor.yview)
@@ -223,6 +214,7 @@ class interpreterGUI:
 
         self.editor.bind("<KeyRelease>", self.update_line_numbers)   # typing, deleting
         self.editor.bind("<Configure>", self.update_line_numbers)   # panel resized
+        self.editor.bind("<Control-a>", lambda event: event.widget.event_generate("<<SelectAll>>") or "break")
 
     # serach token table wrapper
     def search_tokens(self, event=None):
@@ -404,6 +396,10 @@ class interpreterGUI:
 
         # a separate style for error lines
         self.console_box.tag_configure("error", font=self.error_font, foreground="red")
+
+        # for select all
+        # it is a predefined event :D https://tkdocs.com/tutorial/menus.html 
+        self.console_box.bind("<Control-a>", lambda event: event.widget.event_generate("<<SelectAll>>") or "break")
     
     # === hala may daga ===
     def on_title_click(self, event=None):
