@@ -1,5 +1,6 @@
-from lexer import lex, build_symbol_table
-from syntax import syntax_analyze
+import sys
+from src.lexer import lex, build_symbol_table
+from src.syntax import syntax_analyze
 
 def analyze(source):
     tokens, errors = lex(source)

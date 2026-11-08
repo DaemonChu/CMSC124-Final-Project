@@ -1,4 +1,4 @@
-from lexer import KEYWORD_KINDS, is_plus
+from .lexer import KEYWORD_KINDS, is_plus
 
 # separation for convenience of checking syntax
 IGNORED_KINDS = ("Comment", "Single-line Comment Keyword", "Multi-line Comment Delimiter")

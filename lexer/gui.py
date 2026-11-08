@@ -8,7 +8,7 @@ import tkinter.font as tkFont
 from tkinter import ttk, filedialog, simpledialog, messagebox
 
 from main import analyze
-from semantic import run_program, format_value
+from src.semantic import run_program, format_value
 
 # TODO:
 # The parts of the GUI are as follows:
