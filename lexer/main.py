@@ -1,3 +1,5 @@
+import sys
+
 from lexer import lex, build_symbol_table
 from syntax import syntax_analyze
 
