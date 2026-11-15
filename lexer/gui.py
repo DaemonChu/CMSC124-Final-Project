@@ -350,7 +350,8 @@ class interpreterGUI:
         self.console_write("Syntax analysis finished with no errors.\n")
         
         # connect the gui to the semantics.py
-        result = run_program(source, write_output=self.console_write, read_input=self.console_input)
+        # pass the already-analyzed tokens so we don't lex+parse twice
+        result = run_program(tokens, write_output=self.console_write, read_input=self.console_input)
 
         for row in self.symbol_table.get_children():
             self.symbol_table.delete(row)

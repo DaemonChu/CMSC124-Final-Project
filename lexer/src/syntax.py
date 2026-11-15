@@ -573,10 +573,10 @@ def syntax_analyze(tokens):
                 check_end(line_tokens, 1, line, "'BUHBYE' must be alone on its line")
  
             elif word == "I HAS A":
-                # allow global declarations in WAZZUP and local ones in functions
-                if (top is None or
-                        (top["name"] != "WAZZUP" and not inside(stack, ("HOW IZ I",)))):
-                    fail(line, "variables must be declared in the WAZZUP section or inside a function")
+                # allow declarations anywhere after HAI (main body, loops,
+                # if-else, switch-case) and inside functions
+                if not started and not inside(stack, ("HOW IZ I",)):
+                    fail(line, "variables must be declared inside the program or a function")
                 check_varident(line_tokens, line)
  
             #  if-else 

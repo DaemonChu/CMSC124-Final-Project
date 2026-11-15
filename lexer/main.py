@@ -17,7 +17,7 @@ def main():
     if len(sys.argv) > 1:
         path = sys.argv[1]
     else:
-        path = "sample.lol"
+        path = "example/sample.lol"
  
     try:
         # changed f = open(path, encoding="utf-8")

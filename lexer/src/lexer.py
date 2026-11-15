@@ -129,22 +129,13 @@ def lex(source):
     
         # --- inside an OBTW ... TLDR comment ---
         if in_multiline_comment:
-            # Look for TLDR as a complete keywrd anywhere in the line.
-            has_tldr = re.search(r"(^|\s)TLDR(\s|$)", rest)
-
-            if has_tldr:
-                # Save the comment text before TLDR, if there is any.
-                comment = rest[:has_tldr.start()].strip()
-
-                if comment != "":
-                    tokens.append((comment, "Comment", line_number))
-
-                # End the multiline comment.
+            # FIX: TLDR must be at the START of the (stripped) line to close
+            # the comment. Searching anywhere would prematurely end a comment
+            # whose text contains the word "TLDR".
+            if rest == "TLDR" or rest.startswith("TLDR "):
                 tokens.append(("TLDR", "Multi-line Comment Delimiter", line_number))
                 in_multiline_comment = False
-
-                # Continue reading any code after TLDR.
-                rest = rest[has_tldr.end():].strip()
+                rest = rest[4:].strip()
             else:
                 # The entire line is still part of the comment.
                 if rest != "":

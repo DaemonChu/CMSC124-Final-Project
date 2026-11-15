@@ -5,7 +5,6 @@ import re
 import sys
 import math
 
-from main import analyze
 from .lexer import is_plus
 from .syntax import (group_by_line, first_word, is_keyword, ARITH_OPS, BOOL_BIN_OPS, COMPARE_OPS, INFINITE_OPS)
 
@@ -38,16 +37,12 @@ def type_name(value):
     return "YARN"
 
 
-# NUMBAR -> YARN: cut to 2 decimal places, 3.14159 -> "3.14", 17.0 -> "17.0"
+# NUMBAR -> YARN: preserve full precision like the reference interpreter (lci)
 def float_to_yarn(number):
-    sign = ""
-    if number < 0:
-        sign = "-"
-    whole, decimals = format(abs(number), ".10f").split(".")
-    decimals = decimals[:2].rstrip("0")
-    if decimals == "":
-        decimals = "0"
-    return sign + whole + "." + decimals
+    text = str(number)
+    if "." not in text and "e" not in text and "E" not in text:
+        text = text + ".0"       # keep it looking like a float
+    return text
 
 
 # YARN -> number: with a "." it is a NUMBAR, without it is a NUMBR
@@ -76,7 +71,7 @@ def to_number(value, line):
 def to_yarn(value, line):
     kind = type_name(value)
     if kind == "NOOB":
-        runtime_error(line, "cannot cast NOOB to YARN")
+        return ""          # NOOB implicitly casts to empty string for output
     if kind == "TROOF":
         if value:
             return "WIN"
@@ -481,6 +476,11 @@ def do_switch(pc, variables):
 # the TIL/WILE condition is checked at the start of every round
 def do_loop_start(pc, variables):
     tokens = PROGRAM["statements"][pc]
+    # auto-declare the loop variable if it doesn't exist yet
+    if len(tokens) > 4:
+        var_name = tokens[4][0]
+        if var_name not in variables:
+            variables[var_name] = 0
     if len(tokens) > 5:
         condition, i = evaluate(tokens, 6, variables, PROGRAM["numbers"][pc])
         stop = to_troof(condition)               # TIL: stop when WIN
@@ -587,19 +587,11 @@ def run_lines(pc, end, variables):
 #   errors     list of error messages
 #   tokens     list of tokens (for the lexemes table)
 #   variables  variable name -> value (for the symbol table)
-def run_program(source, read_input=None, write_output=None):
-    result = {"ok": False, "stage": "done", "errors": [], "tokens": [], "variables": {"IT": None}}
+def run_program(tokens, read_input=None, write_output=None):
+    result = {"ok": False, "stage": "done", "errors": [], "tokens": tokens, "variables": {"IT": None}}
 
-    tokens, lex_errors, symbols, syntax_errors = analyze(source)
-    result["tokens"] = tokens
-    if len(lex_errors) > 0:
-        result["stage"] = "lexical"
-        result["errors"] = lex_errors
-        return result
-    if len(syntax_errors) > 0:
-        result["stage"] = "syntax"
-        result["errors"] = syntax_errors
-        return result
+    # tokens are already lexed and syntax-checked by the caller (gui.py / main.py),
+    # so we go straight to building the statement list for execution.
 
     # one statement per line
     statements = []
