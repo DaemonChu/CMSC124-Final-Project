@@ -178,10 +178,19 @@ def arithmetic(word, a, b, line):
 # BOTH SAEM / DIFFRINT: no typecasting, different types are never equal
 # (NUMBR and NUMBAR can still be compared with each other)
 def values_equal(a, b):
+    # Get the types of both values only once.
+    type_a = type_name(a)
+    type_b = type_name(b)
+
+    # are the numbers a NUMBR or NUMBAR?
     numbers = ("NUMBR", "NUMBAR")
-    if type_name(a) in numbers and type_name(b) in numbers:
+
+    # NUMBR and NUMBAR can be compared with each other.
+    if type_a in numbers and type_b in numbers:
         return a == b
-    return type_name(a) == type_name(b) and a == b
+
+    # Other values must have the same type to be equal.
+    return type_a == type_b and a == b
 
 
 def apply_binary(word, a, b, line):
@@ -487,14 +496,17 @@ def do_loop_end(pc, variables):
     start = PROGRAM["loop_start"][pc]
     header = PROGRAM["statements"][start]
     line = PROGRAM["numbers"][start]
+
+    # A loop with only a label has no variable to inc or dec
+    if len(header) == 2:
+        return start
+        
     name = header[4][0]
     step = 1
     if header[2][0] == "NERFIN":
         step = -1
     variables[name] = to_number(get_variable(variables, name, line), line) + step
     return start
-
-
 
 
 

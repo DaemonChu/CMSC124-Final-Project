@@ -201,6 +201,10 @@ def parse_expr(tokens, i, line, in_inf, after=""):
                     
                     # skip AN since YR na ulit kasunod
                     i += 1
+                
+                # pag may YR ulit tapos walang AN then the separtor is missing
+                elif is_keyword(get(tokens, i), "YR"):
+                    fail(line, "expected 'AN' before the next argument of '" + f[0] + "'")
             
             # after all expressions must be an MKAY
             if not is_keyword(get(tokens, i), "MKAY"):
@@ -288,6 +292,12 @@ def check_loop_header(tokens, line):
     
     # spec: the <operation> (UPPIN/NERFIN) is NOT optional, only TIL/WILE is
     operation = get(tokens, 2)
+
+    # may contain only its label
+    if operation is None:
+        return
+
+    # Otherwise, UPPIN or NERFIN must follow the label.
     if not is_keyword(operation, "UPPIN") and not is_keyword(operation, "NERFIN"):
         fail(line, "expected 'UPPIN' or 'NERFIN' after the loop label, but found " + describe(operation))
     
