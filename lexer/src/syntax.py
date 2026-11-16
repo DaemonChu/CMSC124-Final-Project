@@ -575,10 +575,9 @@ def syntax_analyze(tokens):
                 check_end(line_tokens, 1, line, "'BUHBYE' must be alone on its line")
  
             elif word == "I HAS A":
-                # allow declarations anywhere after HAI (main body, loops,
-                # if-else, switch-case) and inside functions
-                if not started and not inside(stack, ("HOW IZ I",)):
-                    fail(line, "variables must be declared inside the program or a function")
+                # variables must be declared inside WAZZUP and BUHBYE or a function header/body
+                if (top is None or top["name"]!="WAZZUP") and not inside(stack, ("HOW IZ I",)):
+                    fail(line, "variable declarations ('I HAS A') must be inside 'WAZZUP ... BUHBYE' or a function")
                 check_varident(line_tokens, line)
  
             #  if-else 
