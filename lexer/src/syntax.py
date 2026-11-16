@@ -295,11 +295,7 @@ def check_loop_header(tokens, line):
     # spec: the <operation> (UPPIN/NERFIN) is NOT optional, only TIL/WILE is
     operation = get(tokens, 2)
 
-    # may contain only its label
-    if operation is None:
-        return
-
-    # Otherwise, UPPIN or NERFIN must follow the label.
+    # UPPIN or NERFIN must follow the label.
     if not is_keyword(operation, "UPPIN") and not is_keyword(operation, "NERFIN"):
         fail(line, "expected 'UPPIN' or 'NERFIN' after the loop label, but found " + describe(operation))
     
