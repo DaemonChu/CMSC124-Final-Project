@@ -140,7 +140,7 @@ def parse_expr(tokens, i, line, in_inf, after=""):
         if word in INFINITE_OPS:
             # no to nesting of ALL OF / ANY OF
             if in_inf:
-                fail(line, "'" + word + "' cannot be nested inside another 'ALL OF' / 'ANY OF'")
+                fail(line, "'" + word + "' cannot be nested inside another 'ALL OF' / 'ANY OF' / 'SMOOSH'")
             
             # read the list of operands (True = we're inside the ALL OF/ANY OF block)
             i = parse_expr_list(tokens, i + 1, line, True, "'" + word + "'")
@@ -154,6 +154,8 @@ def parse_expr(tokens, i, line, in_inf, after=""):
  
         # SMOOSH <expr> AN <expr> ...   (MKAY is optional)
         if word == "SMOOSH":
+            if in_inf:
+                fail(line, "'SMOOSH' cannot be nested inside another 'ALL OF', 'ANY OF', or 'SMOOSH'")
             i = parse_expr_list(tokens, i + 1, line, in_inf, "'SMOOSH'")
             
             # since MKAY is optional, just skip it regardless if it exists or not
