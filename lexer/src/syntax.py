@@ -267,7 +267,7 @@ def check_visible(tokens, line):
         if is_plus(get(tokens, i)):
             i = parse_expr(tokens, i + 1, line, False, "'+'")
         else:
-            i = parse_expr(tokens, i, line, False, "'VISIBLE'")
+            fail(line, "expected '+' between operands of 'VISIBLE' but got " + describe(get(tokens,i)))
 
     if get(tokens, i) is not None and get(tokens, i)[1] == "Output Suppressor":
         i += 1
