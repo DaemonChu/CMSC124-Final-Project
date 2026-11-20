@@ -114,18 +114,31 @@ def cast_explicit(value, type_word, line):
 
 
 # turns the special characters of a YARN into real characters
-def unescape(text):
+# turns the special characters and :{var} interpolations of a YARN into real text
+def unescape(text, variables, line):
     result = ""
     i = 0
     while i < len(text):
-        if text[i] == ":" and i + 1 < len(text) and text[i + 1] in ESCAPES:
-            result = result + ESCAPES[text[i + 1]]
-            i = i + 2
+        if text[i] == ":" and i + 1 < len(text):
+            next = text[i + 1]
+            if next in ESCAPES:
+                result = result + ESCAPES[next]
+                i = i + 2
+            elif next == "{":
+                close = text.find("}", i + 2)
+                if close == -1:
+                    runtime_error(line, "unclosed ': {' variable interpolation in YARN")
+                var_name = text[i + 2:close]
+                value = get_variable(variables, var_name, line)
+                result = result + to_yarn(value, line)
+                i = close + 1
+            else:
+                result = result + text[i]
+                i = i + 1
         else:
             result = result + text[i]
             i = i + 1
     return result
-
 
 
 
@@ -233,7 +246,7 @@ def evaluate(tokens, i, variables, line):
     if kind == "Type Literal":                # NOOB
         return None, i + 1
     if kind == "String Delimiter":            # 3 tokens: quote, text, quote
-        return unescape(tokens[i + 1][0]), i + 3
+        return unescape(tokens[i + 1][0], variables, line), i + 3
     if kind == "Variable Identifier":
         return get_variable(variables, word, line), i + 1
 
