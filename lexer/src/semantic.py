@@ -312,8 +312,11 @@ def evaluate(tokens, i, variables, line):
             if i < len(tokens) and is_keyword(tokens[i], "AN"):
                 i = i + 1                      # skip the AN, the next token is YR
         i = i + 1                              # skip the MKAY
-        return call_function(name, arguments, line), i
-
+        # return call_function(name, arguments, line), i
+        ret_val = call_function(name, arguments, line)
+        variables["IT"] = ret_val
+        return ret_val, i
+    
     runtime_error(line, "cannot evaluate '" + word + "'")
 
 
