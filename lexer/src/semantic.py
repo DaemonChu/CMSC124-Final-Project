@@ -493,11 +493,11 @@ def do_switch(pc, variables):
 def do_loop_start(pc, variables):
     tokens = PROGRAM["statements"][pc]
     to_number(get_variable(variables,tokens[4][0], PROGRAM["numbers"][pc]), PROGRAM["numbers"][pc])
-    # auto-declare the loop variable if it doesn't exist yet
-    if len(tokens) > 4:
-        var_name = tokens[4][0]
-        if var_name not in variables:
-            variables[var_name] = 0
+    # Loop counters are regular variables, dapat declared na sila
+    line = PROGRAM["numbers"][pc]
+    counter_name = tokens[4][0]
+    to_number(get_variable(variables, counter_name, line), line)
+    
     if len(tokens) > 5:
         condition, i = evaluate(tokens, 6, variables, PROGRAM["numbers"][pc])
         stop = to_troof(condition)               # TIL: stop when WIN
