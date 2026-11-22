@@ -257,14 +257,17 @@ def check_varident(tokens, line):
     # wala na dapat kasunod sa same line
     check_end(tokens, i, line, "a declaration looks like 'I HAS A x' or 'I HAS A x ITZ <value>'")
  
+ 
+ 
 def check_visible(tokens, line):
     # accept adjacent output expressions, with or without '+' separators
     i = parse_expr(tokens, 1, line, False, "'VISIBLE'")
 
     while get(tokens, i) is not None and get(tokens, i)[1] != "Output Suppressor":
         if is_plus(get(tokens, i)):
-            i += 1
-        i = parse_expr(tokens, i, line, False, "'VISIBLE'")
+            i = parse_expr(tokens, i + 1, line, False, "'+'")
+        else:
+            fail(line, "expected '+' between operands of 'VISIBLE' but got " + describe(get(tokens,i)))
 
     if get(tokens, i) is not None and get(tokens, i)[1] == "Output Suppressor":
         i += 1
