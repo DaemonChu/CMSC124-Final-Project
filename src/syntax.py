@@ -479,16 +479,9 @@ def syntax_analyze(tokens):
     # OBTW / TLDR sharing a line with a statement
     errors = check_comment_placement(tokens)
 
-    #nothing is allowed before HAI or aftter KTHXBye including comments or functions
-
-    if len(tokens) > 0:
-        if not is_keyword(tokens[0], "HAI"):
-            errors.append("Line " + str(tokens[0][2]) + " nothing is allowed before HAI")
-        if not is_keyword(tokens[-1], "KTHXBYE"):
-            errors.append("Line " + str(tokens[-1][2]) + " nothing is allowed after KTHXYE")
     lines = group_by_line(tokens)
 
-    # attach a standalone closing MKAY to the preceding function ca!-ll
+    # attach a standalone closing MKAY to the preceding function call
     for n in range(1, len(lines)):
         line_tokens = lines[n][1]
         previous_tokens = lines[n - 1][1]
