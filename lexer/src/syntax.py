@@ -475,9 +475,17 @@ def syntax_analyze(tokens):
     
     # OBTW / TLDR sharing a line with a statement
     errors = check_comment_placement(tokens)
+
+    #nothing is allowed before HAI or aftter KTHXBye including comments or functions
+
+    if len(tokens) > 0:
+        if not is_keyword(tokens[0], "HAI"):
+            errors.append("Line " + str(tokens[0][2]) + " nothing is allowed before HAI")
+        if not is_keyword(tokens[-1], "KTHXBYE"):
+            errors.append("Line " + str(tokens[-1][2]) + " nothing is allowed after KTHXYE")
     lines = group_by_line(tokens)
 
-    # attach a standalone closing MKAY to the preceding function call
+    # attach a standalone closing MKAY to the preceding function ca!-ll
     for n in range(1, len(lines)):
         line_tokens = lines[n][1]
         previous_tokens = lines[n - 1][1]
@@ -520,11 +528,11 @@ def syntax_analyze(tokens):
  
         try:
             # outside HAI ... KTHXBYE only function definitions are allowed (per spec) 
-            if not started and len(stack) == 0 and word != "HAI" and word != "HOW IZ I":
+            if not started and len(stack) == 0 and word != "HAI":
                 errors.append("Line " + str(line) + ": the program must start with 'HAI'")
                 started = True    # pretend HAI was there, so we don't repeat this error on every line
-            if finished and len(stack) == 0 and word != "HOW IZ I":
-                fail(line, "only function definitions may come after 'KTHXBYE'")
+            if finished and len(stack) == 0:
+                fail(line, "nothing may come after 'KTHXBYE'")
  
             # a normal statement while WAZZUP is still open: BUHBYE is missing 
             if top is not None and top["name"] == "WAZZUP":
@@ -549,6 +557,8 @@ def syntax_analyze(tokens):
                 check_end(line_tokens, i, line, "'HAI' can only be followed by a version number like 1.2")
  
             elif word == "KTHXBYE":
+                if finished:
+                    fail(line, "nothing may come after 'KTHXBYE'")
                 # anything still open here was never closed
                 while len(stack) > 0:
                     unclosed = stack.pop()
