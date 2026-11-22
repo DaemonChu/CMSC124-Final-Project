@@ -1,0 +1,9 @@
+CMSC 124 Final Project: LOLCODE Interpreter
+Lab Section: ST-1L
+Group Name: DIZGRUP
+
+Contributors:
+1. Chua, Denise Kirssy
+2. Cueto, Raven Nathalie
+3. Gasmen, Lance Axel
+4. Monsalud, Avigail Ann
