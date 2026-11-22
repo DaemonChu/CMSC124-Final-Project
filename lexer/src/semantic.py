@@ -492,7 +492,7 @@ def do_switch(pc, variables):
 # the TIL/WILE condition is checked at the start of every round
 def do_loop_start(pc, variables):
     tokens = PROGRAM["statements"][pc]
-    to_number(get_variable(variables,tokens[4][0], PROGRAM["numbers"][pc]), PROGRAM["numbers"][pc])
+
     # Loop counters are regular variables, dapat declared na sila
     line = PROGRAM["numbers"][pc]
     counter_name = tokens[4][0]
