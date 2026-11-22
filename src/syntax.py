@@ -530,12 +530,12 @@ def syntax_analyze(tokens):
             top = stack[-1]
  
         try:
-            # outside HAI ... KTHXBYE only function definitions are allowed (per spec) 
-            if not started and len(stack) == 0 and word != "HAI":
-                errors.append("Line " + str(line) + ": the program must start with 'HAI'")
-                started = True    # pretend HAI was there, so we don't repeat this error on every line
-            if finished and len(stack) == 0:
-                fail(line, "nothing may come after 'KTHXBYE'")
+            # outside HAI ... KTHXBYE, only function declarations are allowed
+            in_func_decl = inside(stack, ("HOW IZ I",))
+            if not started and not in_func_decl and word != "HAI" and word != "HOW IZ I":
+                fail(line, "only function declarations or comments are allowed before 'HAI'")
+            if finished and not in_func_decl and word != "HOW IZ I":
+                fail(line, "only function declarations or comments are allowed after 'KTHXBYE'")
  
             # a normal statement while WAZZUP is still open: BUHBYE is missing 
             if top is not None and top["name"] == "WAZZUP":
@@ -550,7 +550,7 @@ def syntax_analyze(tokens):
  
             if word == "HAI":
                 if started or len(stack) > 0:
-                    fail(line, "'HAI' can only appear once, at the start of the program")
+                    fail(line, "'HAI' can only appear once, at the start of the main program")
                 started = True
                 # an optional version number is tolerated (HAI 1.2), the spec says it isn't needed
                 i = 1
@@ -561,7 +561,7 @@ def syntax_analyze(tokens):
  
             elif word == "KTHXBYE":
                 if finished:
-                    fail(line, "nothing may come after 'KTHXBYE'")
+                    fail(line, "'KTHXBYE' can only appear once")
                 # anything still open here was never closed
                 while len(stack) > 0:
                     unclosed = stack.pop()
@@ -712,9 +712,9 @@ def syntax_analyze(tokens):
         errors.append("Line " + str(unclosed["line"]) + ": '" + unclosed["name"] + "' is never closed")
  
     if not started:
-        errors.append("Line 1: the program must start with 'HAI'")
+        errors.append("Line 1: the program must contain 'HAI'")
     if not finished:
-        errors.append("Line " + str(lines[-1][0]) + ": the program must end with 'KTHXBYE'")
+        errors.append("Line " + str(lines[-1][0]) + ": the program must contain 'KTHXBYE'")
  
     # errors were saved in the order they were found; show them in line order
     errors.sort(key=error_line_number)
