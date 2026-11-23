@@ -72,7 +72,7 @@ class interpreterGUI:
         if path == "":
             return
 
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8-sig") as f:
             code = f.read()
 
         self.file_path_label.config(text=path) 
