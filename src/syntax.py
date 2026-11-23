@@ -156,7 +156,7 @@ def parse_expr(tokens, i, line, in_inf, after=""):
         if word == "SMOOSH":
             if in_inf:
                 fail(line, "'SMOOSH' cannot be nested inside another 'ALL OF', 'ANY OF', or 'SMOOSH'")
-            i = parse_expr_list(tokens, i + 1, line, in_inf, "'SMOOSH'")
+            i = parse_expr_list(tokens, i + 1, line, True, "'SMOOSH'")
             
             # since MKAY is optional, just skip it regardless if it exists or not
             if is_keyword(get(tokens, i), "MKAY"):

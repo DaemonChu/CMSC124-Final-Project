@@ -37,12 +37,21 @@ def type_name(value):
     return "YARN"
 
 
-# NUMBAR -> YARN: preserve full precision like the reference interpreter (lci)
+# NUMBAR -> YARN: truncate to two decimal places per spec
 def float_to_yarn(number):
-    text = str(number)
-    if "." not in text and "e" not in text and "E" not in text:
-        text = text + ".0"       # keep it looking like a float
-    return text
+    # Truncate (not round) to 2 decimal places, as the spec says "truncate"
+    import math
+    if number >= 0:
+        text = str(math.floor(number * 100) / 100)
+    else:
+        text = str(math.ceil(number * 100) / 100)
+    # Ensure exactly 2 decimal places
+    if "." not in text:
+        text = text + ".0"
+    parts = text.split(".")
+    # Pad to 2 decimals if needed (e.g. "3.1" -> "3.10")
+    parts[1] = (parts[1] + "00")[:2]
+    return parts[0] + "." + parts[1]
 
 
 # YARN -> number: with a "." it is a NUMBAR, without it is a NUMBR
