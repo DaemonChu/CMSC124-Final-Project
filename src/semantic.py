@@ -80,7 +80,7 @@ def to_number(value, line):
 def to_yarn(value, line):
     kind = type_name(value)
     if kind == "NOOB":
-        return ""          # NOOB implicitly casts to empty string for output
+        runtime_error(line, "cannot implicitly cast NOOB to YARN")
     if kind == "TROOF":
         if value:
             return "WIN"
